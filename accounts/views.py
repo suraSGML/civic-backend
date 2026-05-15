@@ -85,17 +85,24 @@ class LoginView(APIView):
         logger.warning(f"Login request data: {request.data}")
         logger.warning(f"Request content type: {request.content_type}")
         
-        serializer = UserLoginSerializer(data=request.data)
-        if not serializer.is_valid():
-            logger.warning(f"Serializer errors: {serializer.errors}")
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
-        data = serializer.validated_data
-        return Response({
-            'user': UserProfileSerializer(data['user']).data,
-            'access': data['access'],
-            'refresh': data['refresh'],
-        })
+        try:
+            serializer = UserLoginSerializer(data=request.data)
+            if not serializer.is_valid():
+                logger.warning(f"Serializer errors: {serializer.errors}")
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+            data = serializer.validated_data
+            return Response({
+                'user': UserProfileSerializer(data['user']).data,
+                'access': data['access'],
+                'refresh': data['refresh'],
+            })
+        except Exception as e:
+            logger.error(f"Login error: {str(e)}", exc_info=True)
+            return Response(
+                {'error': 'Login failed. Please try again.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class LogoutView(APIView):
