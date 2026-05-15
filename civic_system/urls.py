@@ -5,11 +5,21 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django.http import JsonResponse
 from drf_spectacular.views import (
     SpectacularAPIView,
     SpectacularSwaggerView,
     SpectacularRedocView,
 )
+
+# Root endpoint
+def root_view(request):
+    return JsonResponse({
+        'message': 'Civic System API',
+        'version': '1.0.0',
+        'docs': '/api/docs/',
+        'api': '/api/v1/'
+    })
 
 api_v1_patterns = [
     path('auth/', include('accounts.urls')),
@@ -21,6 +31,7 @@ api_v1_patterns = [
 ]
 
 urlpatterns = [
+    path('', root_view, name='root'),
     path('admin/', admin.site.urls),
     path('api/v1/', include(api_v1_patterns)),
 
