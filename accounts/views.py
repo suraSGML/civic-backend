@@ -82,18 +82,41 @@ class LoginView(APIView):
     def post(self, request):
         import logging
         logger = logging.getLogger('civic_system')
-        logger.warning(f"Login request data: {request.data}")
         
         try:
-            serializer = UserLoginSerializer(data=request.data)
-            if not serializer.is_valid():
-                logger.warning(f"Serializer errors: {serializer.errors}")
-                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            logger.info(f"Login attempt with email: {request.data.get('email')}")
             
-            data = serializer.validated_data
-            user = data['user']
+            # Check if user exists
+            email = request.data.get('email')
+            if not email:
+                return Response({'error': 'Email is required'}, status=status.HTTP_400_BAD_REQUEST)
             
-            # Return minimal user data to avoid serializer issues
+            try:
+                user = User.objects.get(email=email)
+                logger.info(f"User found: {user.email}")
+            except User.DoesNotExist:
+                logger.warning(f"User not found: {email}")
+                return Response({'error': 'Invalid email or password'}, status=status.HTTP_401_UNAUTHORIZED)
+            
+            # Validate password
+            password = request.data.get('password')
+            if not user.check_password(password):
+                logger.warning(f"Invalid password for user: {email}")
+                return Response({'error': 'Invalid email or password'}, status=status.HTTP_401_UNAUTHORIZED)
+            
+            # Check if user is active
+            if not user.is_active:
+                logger.warning(f"Inactive user attempted login: {email}")
+                return Response({'error': 'Account is deactivated'}, status=status.HTTP_403_FORBIDDEN)
+            
+            if user.is_banned:
+                logger.warning(f"Banned user attempted login: {email}")
+                return Response({'error': f'Account is banned. Reason: {user.ban_reason}'}, status=status.HTTP_403_FORBIDDEN)
+            
+            # Generate tokens
+            refresh = RefreshToken.for_user(user)
+            logger.info(f"Login successful for user: {email}")
+            
             return Response({
                 'user': {
                     'id': user.id,
@@ -106,8 +129,8 @@ class LoginView(APIView):
                     'region': user.region,
                     'is_verified': user.is_verified,
                 },
-                'access': data['access'],
-                'refresh': data['refresh'],
+                'access': str(refresh.access_token),
+                'refresh': str(refresh),
             })
         except Exception as e:
             logger.error(f"Login error: {str(e)}", exc_info=True)
