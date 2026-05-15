@@ -1,0 +1,2 @@
+# Logs directory
+Application logs are stored here.
