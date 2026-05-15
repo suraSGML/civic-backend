@@ -95,7 +95,11 @@ if DATABASE_URL:
             'PASSWORD': _url.password,
             'HOST': _url.hostname,
             'PORT': _url.port or 5432,
-            'CONN_MAX_AGE': 0,
+            'OPTIONS': {
+                'sslmode': 'require',
+            },
+            'CONN_MAX_AGE': 600,
+            'ATOMIC_REQUESTS': False,
         }
     }
 else:
