@@ -98,7 +98,11 @@ if DATABASE_URL:
             'OPTIONS': {
                 'sslmode': 'require',  # Supabase requires SSL
                 'connect_timeout': 10,
+                'keepalives': 1,
+                'keepalives_idle': 30,
             },
+            'CONN_MAX_AGE': 600,  # Connection pooling
+            'ATOMIC_REQUESTS': False,
         }
     }
 else:
