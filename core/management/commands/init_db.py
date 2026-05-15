@@ -16,6 +16,8 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS('✓ Migrations completed'))
         except Exception as e:
             self.stdout.write(self.style.ERROR(f'✗ Migration failed: {e}'))
+            import traceback
+            traceback.print_exc()
             return
 
         self.stdout.write('Seeding data...')
@@ -24,5 +26,8 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS('✓ Data seeded'))
         except Exception as e:
             self.stdout.write(self.style.WARNING(f'⚠ Seed data failed (may already exist): {e}'))
+            import traceback
+            traceback.print_exc()
 
         self.stdout.write(self.style.SUCCESS('✓ Database initialization complete'))
+
