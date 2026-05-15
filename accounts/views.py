@@ -83,7 +83,6 @@ class LoginView(APIView):
         import logging
         logger = logging.getLogger('civic_system')
         logger.warning(f"Login request data: {request.data}")
-        logger.warning(f"Request content type: {request.content_type}")
         
         try:
             serializer = UserLoginSerializer(data=request.data)
@@ -92,15 +91,28 @@ class LoginView(APIView):
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
             
             data = serializer.validated_data
+            user = data['user']
+            
+            # Return minimal user data to avoid serializer issues
             return Response({
-                'user': UserProfileSerializer(data['user']).data,
+                'user': {
+                    'id': user.id,
+                    'email': user.email,
+                    'first_name': user.first_name,
+                    'last_name': user.last_name,
+                    'full_name': user.get_full_name(),
+                    'role': user.role,
+                    'city': user.city,
+                    'region': user.region,
+                    'is_verified': user.is_verified,
+                },
                 'access': data['access'],
                 'refresh': data['refresh'],
             })
         except Exception as e:
             logger.error(f"Login error: {str(e)}", exc_info=True)
             return Response(
-                {'error': 'Login failed. Please try again.'},
+                {'error': f'Login failed: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
