@@ -49,7 +49,6 @@ INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
-    'core.middleware.DatabaseHealthCheckMiddleware',  # Add this first
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -85,7 +84,6 @@ ASGI_APPLICATION = 'civic_system.asgi.application'
 DATABASE_URL = config('DATABASE_URL', default='')
 
 if DATABASE_URL:
-    # Parse Supabase connection string
     import urllib.parse as _urlparse
     _url = _urlparse.urlparse(DATABASE_URL)
     
@@ -97,20 +95,10 @@ if DATABASE_URL:
             'PASSWORD': _url.password,
             'HOST': _url.hostname,
             'PORT': _url.port or 5432,
-            'OPTIONS': {
-                'sslmode': 'require',
-                'connect_timeout': 30,
-                'keepalives': 1,
-                'keepalives_idle': 30,
-                'keepalives_interval': 10,
-                'keepalives_count': 5,
-            },
             'CONN_MAX_AGE': 0,
-            'ATOMIC_REQUESTS': False,
         }
     }
 else:
-    # Fallback to SQLite when DATABASE_URL is not set
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
