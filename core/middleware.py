@@ -1,12 +1,38 @@
 """
-Audit logging middleware.
+Audit logging middleware and database health check.
 Records all API actions for security and compliance.
 """
 import json
 import logging
 from django.utils import timezone
+from django.db import connection
+from django.db.utils import OperationalError
 
 logger = logging.getLogger('civic_system')
+
+
+class DatabaseHealthCheckMiddleware:
+    """
+    Checks database connection health and reconnects if needed.
+    """
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        try:
+            # Test database connection
+            connection.ensure_connection()
+        except OperationalError as e:
+            logger.error(f"Database connection error: {e}")
+            # Close and reconnect
+            connection.close()
+            try:
+                connection.ensure_connection()
+            except Exception as e2:
+                logger.error(f"Failed to reconnect to database: {e2}")
+        
+        response = self.get_response(request)
+        return response
 
 
 class AuditLogMiddleware:

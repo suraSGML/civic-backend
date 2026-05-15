@@ -49,6 +49,7 @@ INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
+    'core.middleware.DatabaseHealthCheckMiddleware',  # Add this first
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -84,9 +85,13 @@ ASGI_APPLICATION = 'civic_system.asgi.application'
 DATABASE_URL = config('DATABASE_URL', default='')
 
 if DATABASE_URL:
-    # Parse Supabase connection string: postgresql://user:pass@host:port/db
+    # Parse Supabase connection string
     import urllib.parse as _urlparse
     _url = _urlparse.urlparse(DATABASE_URL)
+    
+    # Check if using session pooler (port 6543) or direct (port 5432)
+    is_pooler = _url.port == 6543
+    
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
@@ -96,13 +101,26 @@ if DATABASE_URL:
             'HOST': _url.hostname,
             'PORT': _url.port or 5432,
             'OPTIONS': {
-                'sslmode': 'require',  # Supabase requires SSL
-                'connect_timeout': 10,
+                'sslmode': 'require',
+                'connect_timeout': 30,
                 'keepalives': 1,
                 'keepalives_idle': 30,
+                'keepalives_interval': 10,
+                'keepalives_count': 5,
+                # For session pooler, disable prepared statements
+                'statement_timeout': 30000,
+            } if not is_pooler else {
+                'sslmode': 'require',
+                'connect_timeout': 30,
+                'keepalives': 1,
+                'keepalives_idle': 30,
+                'keepalives_interval': 10,
+                'keepalives_count': 5,
+                'statement_timeout': 30000,
             },
-            'CONN_MAX_AGE': 600,  # Connection pooling
+            'CONN_MAX_AGE': 0,  # Disable connection pooling when using session pooler
             'ATOMIC_REQUESTS': False,
+            'AUTOCOMMIT': True,
         }
     }
 else:
