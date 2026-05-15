@@ -22,6 +22,7 @@ def root_view(request):
     })
 
 api_v1_patterns = [
+    path('health/', lambda request: JsonResponse({'status': 'ok', 'message': 'Backend is running'})),
     path('auth/', include('accounts.urls')),
     path('reports/', include('reports.urls')),
     path('media/', include('media_files.urls')),

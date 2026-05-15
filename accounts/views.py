@@ -84,46 +84,48 @@ class LoginView(APIView):
         logger = logging.getLogger('civic_system')
         
         try:
-            logger.info(f"Login attempt with email: {request.data.get('email')}")
+            logger.info(f"=== LOGIN ATTEMPT ===")
+            logger.info(f"Request data: {request.data}")
+            logger.info(f"Request method: {request.method}")
             
-            # Check if user exists
             email = request.data.get('email')
-            if not email:
-                return Response({'error': 'Email is required'}, status=status.HTTP_400_BAD_REQUEST)
-            
-            try:
-                user = User.objects.get(email=email)
-                logger.info(f"User found: {user.email}")
-            except User.DoesNotExist:
-                logger.warning(f"User not found: {email}")
-                return Response({'error': 'Invalid email or password'}, status=status.HTTP_401_UNAUTHORIZED)
-            
-            # Validate password
             password = request.data.get('password')
+            
+            logger.info(f"Email: {email}, Password length: {len(password) if password else 0}")
+            
+            if not email or not password:
+                logger.warning("Missing email or password")
+                return Response({'error': 'Email and password are required'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            logger.info(f"Querying user with email: {email}")
+            user = User.objects.get(email=email)
+            logger.info(f"User found: {user.id}, {user.email}")
+            
+            logger.info(f"Checking password...")
             if not user.check_password(password):
                 logger.warning(f"Invalid password for user: {email}")
                 return Response({'error': 'Invalid email or password'}, status=status.HTTP_401_UNAUTHORIZED)
             
-            # Check if user is active
+            logger.info(f"Password valid. Checking user status...")
             if not user.is_active:
-                logger.warning(f"Inactive user attempted login: {email}")
+                logger.warning(f"Inactive user: {email}")
                 return Response({'error': 'Account is deactivated'}, status=status.HTTP_403_FORBIDDEN)
             
             if user.is_banned:
-                logger.warning(f"Banned user attempted login: {email}")
-                return Response({'error': f'Account is banned. Reason: {user.ban_reason}'}, status=status.HTTP_403_FORBIDDEN)
+                logger.warning(f"Banned user: {email}")
+                return Response({'error': f'Account is banned'}, status=status.HTTP_403_FORBIDDEN)
             
-            # Generate tokens
+            logger.info(f"Generating tokens...")
             refresh = RefreshToken.for_user(user)
-            logger.info(f"Login successful for user: {email}")
+            logger.info(f"Tokens generated successfully")
             
-            return Response({
+            response_data = {
                 'user': {
                     'id': user.id,
                     'email': user.email,
                     'first_name': user.first_name,
                     'last_name': user.last_name,
-                    'full_name': user.get_full_name(),
+                    'full_name': f"{user.first_name} {user.last_name}",
                     'role': user.role,
                     'city': user.city,
                     'region': user.region,
@@ -131,11 +133,21 @@ class LoginView(APIView):
                 },
                 'access': str(refresh.access_token),
                 'refresh': str(refresh),
-            })
+            }
+            logger.info(f"Login successful for: {email}")
+            return Response(response_data)
+            
+        except User.DoesNotExist:
+            logger.warning(f"User not found: {email}")
+            return Response({'error': 'Invalid email or password'}, status=status.HTTP_401_UNAUTHORIZED)
         except Exception as e:
-            logger.error(f"Login error: {str(e)}", exc_info=True)
+            logger.error(f"=== LOGIN ERROR ===", exc_info=True)
+            logger.error(f"Error type: {type(e).__name__}")
+            logger.error(f"Error message: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
             return Response(
-                {'error': f'Login failed: {str(e)}'},
+                {'error': f'Login failed: {type(e).__name__}: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
