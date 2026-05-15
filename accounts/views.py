@@ -80,72 +80,40 @@ class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
-        import json
         import logging
         logger = logging.getLogger('civic_system')
         
-        logger.info("=== LOGIN ENDPOINT CALLED ===")
+        logger.info("=== LOGIN START ===")
         
         try:
-            # Parse request data
-            if isinstance(request.data, dict):
-                email = request.data.get('email')
-                password = request.data.get('password')
-            else:
-                email = None
-                password = None
+            logger.info("Step 1: Getting email and password")
+            email = request.data.get('email')
+            password = request.data.get('password')
+            logger.info(f"Step 2: Email={email}, Password length={len(password) if password else 0}")
             
-            logger.info(f"Email: {email}")
-            logger.info(f"Password provided: {bool(password)}")
-            
-            # Validate input
             if not email or not password:
-                logger.warning("Missing email or password")
-                return Response(
-                    {'error': 'Email and password are required'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+                logger.info("Step 3: Missing credentials")
+                return Response({'error': 'Email and password required'}, status=400)
             
-            # Get user
-            logger.info(f"Looking up user: {email}")
-            try:
-                user = User.objects.get(email=email)
-                logger.info(f"User found: {user.id}")
-            except User.DoesNotExist:
-                logger.warning(f"User not found: {email}")
-                return Response(
-                    {'error': 'Invalid credentials'},
-                    status=status.HTTP_401_UNAUTHORIZED
-                )
+            logger.info("Step 4: About to query database")
+            # Try to get user
+            user = User.objects.filter(email=email).first()
+            logger.info(f"Step 5: Query complete, user={user}")
             
-            # Check password
-            logger.info("Checking password...")
+            if not user:
+                logger.info("Step 6: User not found")
+                return Response({'error': 'Invalid credentials'}, status=401)
+            
+            logger.info("Step 7: Checking password")
             if not user.check_password(password):
-                logger.warning("Invalid password")
-                return Response(
-                    {'error': 'Invalid credentials'},
-                    status=status.HTTP_401_UNAUTHORIZED
-                )
+                logger.info("Step 8: Password invalid")
+                return Response({'error': 'Invalid credentials'}, status=401)
             
-            # Check status
-            logger.info("Checking user status...")
-            if not user.is_active:
-                return Response(
-                    {'error': 'Account is inactive'},
-                    status=status.HTTP_403_FORBIDDEN
-                )
-            
-            if user.is_banned:
-                return Response(
-                    {'error': 'Account is banned'},
-                    status=status.HTTP_403_FORBIDDEN
-                )
-            
-            # Generate tokens
-            logger.info("Generating tokens...")
+            logger.info("Step 9: About to generate tokens")
             refresh = RefreshToken.for_user(user)
+            logger.info("Step 10: Tokens generated")
             
-            logger.info("Login successful!")
+            logger.info("Step 11: Returning response")
             return Response({
                 'user': {
                     'id': user.id,
@@ -160,21 +128,11 @@ class LoginView(APIView):
                 },
                 'access': str(refresh.access_token),
                 'refresh': str(refresh),
-            }, status=status.HTTP_200_OK)
+            })
             
         except Exception as e:
-            logger.error(f"EXCEPTION: {type(e).__name__}: {str(e)}")
-            import traceback
-            logger.error(traceback.format_exc())
-            
-            # Return error as JSON
-            return Response(
-                {
-                    'error': 'Login failed',
-                    'detail': f'{type(e).__name__}: {str(e)}'
-                },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            logger.error(f"ERROR: {type(e).__name__}: {str(e)}", exc_info=True)
+            return Response({'error': str(e)}, status=500)
 
 
 class LogoutView(APIView):
