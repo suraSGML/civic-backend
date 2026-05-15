@@ -172,19 +172,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'accounts.User'
 
 # REST Framework
-# Only enable throttling if Redis is available
-_throttle_classes = []
-_throttle_rates = {}
-if USE_REDIS:
-    _throttle_classes = [
-        'rest_framework.throttling.AnonRateThrottle',
-        'rest_framework.throttling.UserRateThrottle',
-    ]
-    _throttle_rates = {
-        'anon': '100/day',
-        'user': '1000/day',
-    }
-
+# Disable throttling to avoid Redis dependency issues
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
@@ -200,8 +188,8 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'core.pagination.StandardResultsPagination',
     'PAGE_SIZE': 20,
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
-    'DEFAULT_THROTTLE_CLASSES': _throttle_classes,
-    'DEFAULT_THROTTLE_RATES': _throttle_rates,
+    'DEFAULT_THROTTLE_CLASSES': [],
+    'DEFAULT_THROTTLE_RATES': {},
     'EXCEPTION_HANDLER': 'core.exceptions.custom_exception_handler',
 }
 
