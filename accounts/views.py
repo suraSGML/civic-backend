@@ -80,46 +80,73 @@ class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
+        import json
         import logging
         logger = logging.getLogger('civic_system')
         
+        logger.info("=== LOGIN ENDPOINT CALLED ===")
+        
         try:
-            logger.info(f"=== LOGIN ATTEMPT ===")
-            logger.info(f"Request data: {request.data}")
-            logger.info(f"Request method: {request.method}")
+            # Parse request data
+            if isinstance(request.data, dict):
+                email = request.data.get('email')
+                password = request.data.get('password')
+            else:
+                email = None
+                password = None
             
-            email = request.data.get('email')
-            password = request.data.get('password')
+            logger.info(f"Email: {email}")
+            logger.info(f"Password provided: {bool(password)}")
             
-            logger.info(f"Email: {email}, Password length: {len(password) if password else 0}")
-            
+            # Validate input
             if not email or not password:
                 logger.warning("Missing email or password")
-                return Response({'error': 'Email and password are required'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {'error': 'Email and password are required'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
             
-            logger.info(f"Querying user with email: {email}")
-            user = User.objects.get(email=email)
-            logger.info(f"User found: {user.id}, {user.email}")
+            # Get user
+            logger.info(f"Looking up user: {email}")
+            try:
+                user = User.objects.get(email=email)
+                logger.info(f"User found: {user.id}")
+            except User.DoesNotExist:
+                logger.warning(f"User not found: {email}")
+                return Response(
+                    {'error': 'Invalid credentials'},
+                    status=status.HTTP_401_UNAUTHORIZED
+                )
             
-            logger.info(f"Checking password...")
+            # Check password
+            logger.info("Checking password...")
             if not user.check_password(password):
-                logger.warning(f"Invalid password for user: {email}")
-                return Response({'error': 'Invalid email or password'}, status=status.HTTP_401_UNAUTHORIZED)
+                logger.warning("Invalid password")
+                return Response(
+                    {'error': 'Invalid credentials'},
+                    status=status.HTTP_401_UNAUTHORIZED
+                )
             
-            logger.info(f"Password valid. Checking user status...")
+            # Check status
+            logger.info("Checking user status...")
             if not user.is_active:
-                logger.warning(f"Inactive user: {email}")
-                return Response({'error': 'Account is deactivated'}, status=status.HTTP_403_FORBIDDEN)
+                return Response(
+                    {'error': 'Account is inactive'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
             
             if user.is_banned:
-                logger.warning(f"Banned user: {email}")
-                return Response({'error': f'Account is banned'}, status=status.HTTP_403_FORBIDDEN)
+                return Response(
+                    {'error': 'Account is banned'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
             
-            logger.info(f"Generating tokens...")
+            # Generate tokens
+            logger.info("Generating tokens...")
             refresh = RefreshToken.for_user(user)
-            logger.info(f"Tokens generated successfully")
             
-            response_data = {
+            logger.info("Login successful!")
+            return Response({
                 'user': {
                     'id': user.id,
                     'email': user.email,
@@ -133,21 +160,19 @@ class LoginView(APIView):
                 },
                 'access': str(refresh.access_token),
                 'refresh': str(refresh),
-            }
-            logger.info(f"Login successful for: {email}")
-            return Response(response_data)
+            }, status=status.HTTP_200_OK)
             
-        except User.DoesNotExist:
-            logger.warning(f"User not found: {email}")
-            return Response({'error': 'Invalid email or password'}, status=status.HTTP_401_UNAUTHORIZED)
         except Exception as e:
-            logger.error(f"=== LOGIN ERROR ===", exc_info=True)
-            logger.error(f"Error type: {type(e).__name__}")
-            logger.error(f"Error message: {str(e)}")
+            logger.error(f"EXCEPTION: {type(e).__name__}: {str(e)}")
             import traceback
             logger.error(traceback.format_exc())
+            
+            # Return error as JSON
             return Response(
-                {'error': f'Login failed: {type(e).__name__}: {str(e)}'},
+                {
+                    'error': 'Login failed',
+                    'detail': f'{type(e).__name__}: {str(e)}'
+                },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
