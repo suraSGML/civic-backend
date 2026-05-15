@@ -89,9 +89,6 @@ if DATABASE_URL:
     import urllib.parse as _urlparse
     _url = _urlparse.urlparse(DATABASE_URL)
     
-    # Check if using session pooler (port 6543) or direct (port 5432)
-    is_pooler = _url.port == 6543
-    
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
@@ -107,20 +104,9 @@ if DATABASE_URL:
                 'keepalives_idle': 30,
                 'keepalives_interval': 10,
                 'keepalives_count': 5,
-                # For session pooler, disable prepared statements
-                'statement_timeout': 30000,
-            } if not is_pooler else {
-                'sslmode': 'require',
-                'connect_timeout': 30,
-                'keepalives': 1,
-                'keepalives_idle': 30,
-                'keepalives_interval': 10,
-                'keepalives_count': 5,
-                'statement_timeout': 30000,
             },
-            'CONN_MAX_AGE': 0,  # Disable connection pooling when using session pooler
+            'CONN_MAX_AGE': 0,
             'ATOMIC_REQUESTS': False,
-            'AUTOCOMMIT': True,
         }
     }
 else:
